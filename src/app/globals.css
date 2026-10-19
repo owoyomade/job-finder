@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #edf1f3;
+  --surface: #ffffff;
+  --sunken: #e2e8ec;
+  --line: #ccd6dd;
+  --ink: #14283a;
+  --muted: #557083;
+  --spruce: #1e6b57;
+  --spruce-soft: #dcece6;
+  --amber: #b7791f;
+  --amber-soft: #f6ead3;
+  --rust: #a8432c;
+  --rust-soft: #f5e1dc;
+  --slate: #8095a5;
+  --focus: #2b7fd1;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0f1a23;
+    --surface: #16242f;
+    --sunken: #1c2d3a;
+    --line: #2a3f4f;
+    --ink: #e4ecf1;
+    --muted: #93a9b8;
+    --spruce: #4fb592;
+    --spruce-soft: #173a31;
+    --amber: #e0a845;
+    --amber-soft: #3a2e17;
+    --rust: #e07a62;
+    --rust-soft: #3d221c;
+    --slate: #6c8394;
+    --focus: #6aaef0;
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-spruce: var(--spruce);
+  --color-spruce-soft: var(--spruce-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-rust: var(--rust);
+  --color-rust-soft: var(--rust-soft);
+  --color-slate: var(--slate);
+  --font-sans: var(--font-public-sans);
+  --font-display: var(--font-bricolage);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Long generated text (answers, letters) keeps readable line lengths. */
+.prose-measure {
+  max-width: 72ch;
 }
