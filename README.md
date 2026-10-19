@@ -1,54 +1,58 @@
 # Job Finder (Canada)
 
-A personal job-hunting app that runs on your Mac:
+A personal job-hunting app for iPhone, Android and desktop, modelled on swipe-to-apply apps like Sprout:
 
-- **Find jobs**: searches LinkedIn, Indeed, Glassdoor and company career sites (through JSearch), **Job Bank**, Adzuna and remote boards in one go. It also links to GC Jobs, provincial public service sites and municipal job sites.
-- **Screens out old postings**: a "posted within" filter, age stamps on every job, hidden expired or undated jobs, repost detection, and a "Check if still open" button.
-- **Asks what level you're applying for** (Internship → Director+), filters out jobs that don't fit, and flags stretch roles.
-- **Tailors your resume** to each job's keywords without inventing anything, and exports ATS-friendly **DOCX and PDF** files.
-- **Writes cover letters** in a Canadian business format.
-- **Interview prep**: 20–80 likely questions for the role (behavioural, technical, situational and company questions, plus questions to ask them), each with a model answer built from your resume.
+- **Discover**: swipe through fresh Canadian jobs. Right means interested, left means skip. Jobs come from LinkedIn, Indeed, Glassdoor and company sites (through JSearch), plus **Job Bank**, Adzuna and remote boards.
+- **A few quick questions**: after you swipe right, the app asks about skills the job wants that your resume doesn't mention yet. Your answers are used as real facts, and nothing is made up.
+- **One-tap prepare**: a tailored, ATS-friendly resume and a cover letter (DOCX and PDF) for that job.
+- **Applications tracker**: Interested → Ready → Applied → Interviewing → Offer. "Open application" takes you to the employer's page with your documents ready, and one tap marks it as applied.
+- **Interview prep**: 20–80 likely questions for the role, each with a model answer built from your resume.
+- **Screens out old postings** and **asks your job level** (Internship → Director+). Also links to GC Jobs and provincial and municipal job sites.
 
-## Setup
+> Unlike Sprout, Job Finder doesn't submit applications for you. LinkedIn, Indeed and most employer sites forbid automated applications, and they can ban accounts for it. Instead, it gets you to the application page with everything ready.
 
-1. Install dependencies (Node.js 22+):
-   ```bash
-   npm install
-   ```
-2. Create your keys file:
-   ```bash
-   cp .env.local.example .env.local
-   ```
-   Then fill in:
-   - `ANTHROPIC_API_KEY`: from <https://console.anthropic.com/settings/keys>. It powers resume reading, tailoring, cover letters and interview prep.
-   - `RAPIDAPI_KEY`: sign up at <https://rapidapi.com>, then subscribe to the free **JSearch** plan. This adds LinkedIn, Indeed and Glassdoor results.
-   - Optional: `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` from <https://developer.adzuna.com>.
+## Run it on your computer
 
-   Without keys the app still runs. Job Bank and Remotive search work, and the AI features return clearly labelled sample text.
-3. Start it:
-   ```bash
-   npm run dev
-   ```
-   Then open <http://localhost:3000>.
+```bash
+npm install
+cp .env.local.example .env.local   # then add your keys (see below)
+npm run dev                         # open http://localhost:3000
+```
 
-## Using it
+## Keys
 
-1. **My resume**: upload your resume (PDF/DOCX) or paste it, check the details, and choose the level you're applying for.
-2. **Find jobs**: search and save the jobs you like. Use the government sites panel for GC Jobs and provincial postings.
-3. Open a job to **tailor your resume**, **write a cover letter** and **generate interview questions**. Download DOCX or PDF.
-4. Found a job somewhere else? Use **Saved jobs → Paste a job**.
+| Variable | Where to get it | Needed for |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | <https://console.anthropic.com> → Settings → API Keys (add a little credit under Billing) | Resume reading, tailoring, cover letters, interview prep |
+| `RAPIDAPI_KEY` | <https://rapidapi.com> → search **JSearch** → subscribe to the free Basic plan → copy `X-RapidAPI-Key` | LinkedIn, Indeed and Glassdoor jobs |
+| `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` | <https://developer.adzuna.com> (optional) | More Canadian listings |
+| `APP_PASSWORD` | Make one up | Protects the hosted app. Leave it empty when running locally |
+| `SESSION_SECRET` | Any long random string, e.g. `openssl rand -hex 32` | Signs your login cookie |
 
-## Notes
+Without the AI or JSearch keys the app still runs. Job Bank and Remotive search work, and the AI features return clearly labelled sample text.
 
-- Your data stays on your computer in `data/jobfinder.db`.
-- Job Bank has no public API, so the app reads its public search pages at a polite rate for personal use. You can turn it off in the Sources filter.
-- Search results are cached for 6 hours to save your JSearch quota (about 200 requests a month on the free plan).
-- The AI is told never to invent experience. Keywords you don't have are listed under "Left out" rather than added.
+## Host it on Railway (so it works on your phone)
+
+1. Sign in at <https://railway.com> with GitHub. The Hobby plan is about $5/month.
+2. **New Project → Deploy from GitHub repo →** pick `job-finder`. Railway builds it using `railway.json`.
+3. In the service, open **Settings → Volumes → Add volume**, mounted at `/data`. This keeps your resume, jobs and documents between deploys.
+4. Under **Variables**, add `JOBFINDER_DB=/data/jobfinder.db`, `APP_PASSWORD`, `SESSION_SECRET`, `ANTHROPIC_API_KEY` and `RAPIDAPI_KEY`.
+5. Under **Settings → Networking**, click **Generate Domain**. Open that URL and sign in with your password.
+
+Every push to `main` redeploys automatically.
+
+## Install on your phone
+
+- **iPhone (Safari)**: open your Railway URL, tap **Share → Add to Home Screen**.
+- **Android (Chrome)**: open the URL, then tap **Install app** (or **⋮ → Add to Home screen**).
+
+It opens full-screen with its own icon, like a regular app.
 
 ## Development
 
 ```bash
-npm test          # unit tests (sources, freshness, level detection, exports)
+npm test          # unit tests (sources, freshness, level, questions, auth, exports)
 npm run typecheck
 npm run lint
+npm run build
 ```

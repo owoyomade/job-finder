@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  Application,
+  ApplicationStatus,
   DocumentKind,
   Job,
   SearchParams,
@@ -48,6 +50,17 @@ function getDb(): DatabaseSync {
       title TEXT NOT NULL,
       data TEXT NOT NULL,
       created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS applications (
+      job_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      answers TEXT NOT NULL DEFAULT '[]',
+      history TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
   `);
   return db;
@@ -234,4 +247,81 @@ export function listDocuments(filter: { jobId?: string; kind?: DocumentKind } = 
 
 export function deleteDocument(id: number) {
   getDb().prepare("DELETE FROM documents WHERE id = ?").run(id);
+}
+
+// ---------- Applications ----------
+
+type AppRow = { job_id: string; status: string; answers: string; history: string; updated_at: string };
+
+const toApp = (r: AppRow): Application => ({
+  jobId: r.job_id,
+  status: r.status as ApplicationStatus,
+  answers: JSON.parse(r.answers),
+  history: JSON.parse(r.history),
+  updatedAt: r.updated_at,
+});
+
+export function getApplication(jobId: string): Application | null {
+  const row = getDb().prepare("SELECT * FROM applications WHERE job_id = ?").get(jobId) as AppRow | undefined;
+  return row ? toApp(row) : null;
+}
+
+/** Create or move an application to a new status, keeping a dated history. */
+export function setApplicationStatus(jobId: string, status: ApplicationStatus): Application {
+  const existing = getApplication(jobId);
+  const at = now();
+  const history = existing?.status === status ? existing.history : [...(existing?.history ?? []), { status, at }];
+  getDb()
+    .prepare(
+      `INSERT INTO applications (job_id, status, answers, history, updated_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(job_id) DO UPDATE SET status = excluded.status, history = excluded.history, updated_at = excluded.updated_at`,
+    )
+    .run(jobId, status, JSON.stringify(existing?.answers ?? []), JSON.stringify(history), at);
+  // Keep the older "saved" flag in step so saved-job lists stay consistent.
+  setJobSaved(jobId, status !== "skipped");
+  return getApplication(jobId)!;
+}
+
+export function saveApplicationAnswers(jobId: string, answers: Application["answers"]): Application {
+  if (!getApplication(jobId)) setApplicationStatus(jobId, "interested");
+  getDb()
+    .prepare("UPDATE applications SET answers = ?, updated_at = ? WHERE job_id = ?")
+    .run(JSON.stringify(answers), now(), jobId);
+  return getApplication(jobId)!;
+}
+
+export function deleteApplication(jobId: string) {
+  getDb().prepare("DELETE FROM applications WHERE job_id = ?").run(jobId);
+  setJobSaved(jobId, false);
+}
+
+export function listApplications(): (Application & { job: Job | null })[] {
+  const rows = getDb()
+    .prepare("SELECT * FROM applications WHERE status != 'skipped' ORDER BY updated_at DESC")
+    .all() as AppRow[];
+  return rows.map((r) => ({ ...toApp(r), job: getJob(r.job_id) }));
+}
+
+/** Status for each of the given job ids (only those that have one). */
+export function applicationStatuses(jobIds: string[]): Map<string, ApplicationStatus> {
+  const out = new Map<string, ApplicationStatus>();
+  if (!jobIds.length) return out;
+  const rows = getDb()
+    .prepare(`SELECT job_id, status FROM applications WHERE job_id IN (${jobIds.map(() => "?").join(",")})`)
+    .all(...jobIds) as { job_id: string; status: string }[];
+  for (const r of rows) out.set(r.job_id, r.status as ApplicationStatus);
+  return out;
+}
+
+// ---------- Settings ----------
+
+export function getSetting<T>(key: string): T | null {
+  const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row ? (JSON.parse(row.value) as T) : null;
+}
+
+export function setSetting(key: string, value: unknown) {
+  getDb()
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .run(key, JSON.stringify(value));
 }

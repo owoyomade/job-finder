@@ -61,6 +61,7 @@ export async function tailorResume(input: {
   job: JobContext;
   level: Level | "";
   canadianSpelling: boolean;
+  answers?: string;
 }): Promise<TailoredResume> {
   if (aiMockEnabled()) return mock.tailorResume(input.profile, input.job);
   return generateStructured({
@@ -86,7 +87,7 @@ ${spelling(input.canadianSpelling)}
 ${jobBlock(input.job)}
 
 ${profileBlock(input.profile)}
-
+${input.answers ? `\n${input.answers}\n` : ""}
 First identify the posting's important keywords (hard skills, soft skills, other terms like certifications or domain language). Then return the tailored resume using the same structure as the profile, keeping the candidate's name and contact details unchanged. Remove experience bullets, projects or volunteer entries that add nothing for this job if the resume would otherwise run past two pages. In "changes", briefly explain the main edits.`,
   });
 }
@@ -102,6 +103,7 @@ export async function writeCoverLetter(input: {
   tone: CoverTone;
   canadianSpelling: boolean;
   extraNotes?: string;
+  answers?: string;
 }): Promise<CoverLetter> {
   if (aiMockEnabled()) return mock.coverLetter(input.profile, input.job);
   const toneText = {
@@ -120,7 +122,7 @@ Tone: ${toneText}
 ${jobBlock(input.job)}
 
 ${profileBlock(input.profile)}
-${input.extraNotes ? `\n<candidate_notes>\n${input.extraNotes}\n</candidate_notes>\n` : ""}
+${input.extraNotes ? `\n<candidate_notes>\n${input.extraNotes}\n</candidate_notes>\n` : ""}${input.answers ? `\n${input.answers}\n` : ""}
 Write the body of a cover letter for this job, 250–350 words unless the tone says otherwise, in 3–4 paragraphs:
 1. A specific opening naming the role and a concrete reason the candidate fits.
 2–3. Two or three of the candidate's most relevant achievements, tied directly to the posting's requirements and using the posting's key terms naturally.

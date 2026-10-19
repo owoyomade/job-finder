@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
 import { matchResume, profileToText, type MatchResult } from "@/lib/match";
 import {
   LEVEL_LABELS,
+  STATUS_LABELS,
+  type ApplicationStatus,
   type CoverLetter,
   type InterviewSet,
   type Job,
@@ -33,7 +35,11 @@ export function JobWorkspace() {
   const [job, setJob] = useState<JobView | null>(null);
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [docs, setDocs] = useState<StoredDocument[]>([]);
-  const [tab, setTab] = useState<Tab>("description");
+  const initialTab = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(
+    TABS.some((t) => t.id === initialTab) ? (initialTab as Tab) : "description",
+  );
+  const [status, setStatusState] = useState<ApplicationStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState<{ open: boolean | null; reason: string } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -76,10 +82,15 @@ export function JobWorkspace() {
     }
   }
 
-  async function toggleSave() {
-    if (!job) return;
-    await api(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "PATCH", json: { saved: !job.saved } });
-    setJob({ ...job, saved: !job.saved });
+  useEffect(() => {
+    api<{ application: { status: ApplicationStatus } | null }>(`/api/applications/${encodeURIComponent(jobId)}`)
+      .then((r) => setStatusState(r.application?.status ?? null))
+      .catch(() => {});
+  }, [jobId]);
+
+  async function setStatus(next: ApplicationStatus) {
+    setStatusState(next);
+    await api(`/api/applications/${encodeURIComponent(jobId)}`, { method: "PUT", json: { status: next } });
   }
 
   if (error && !job) {
@@ -135,9 +146,26 @@ export function JobWorkspace() {
               Open posting
             </a>
           )}
-          <Button variant="secondary" onClick={toggleSave}>
-            {job.saved ? "Saved" : "Save job"}
-          </Button>
+          {status && status !== "skipped" ? (
+            <label className="flex items-center">
+              <span className="sr-only">Application status</span>
+              <select
+                className={cx(inputClass, "w-auto")}
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
+              >
+                {(["interested", "ready", "applied", "interview", "offer", "rejected"] as const).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <Button variant="secondary" onClick={() => setStatus("interested")}>
+              I’m interested
+            </Button>
+          )}
           {job.applyUrl && (
             <Button variant="secondary" onClick={runCheck} busy={checking}>
               Check if still open
@@ -216,8 +244,8 @@ export function JobWorkspace() {
           ) : (
             <Notice>
               This listing didn’t include a description. Open the posting, copy the description, and add it on{" "}
-              <Link className="font-semibold underline" href="/saved">
-                Saved jobs → Paste a job
+              <Link className="font-semibold underline" href="/applications">
+                Applications → Add a job
               </Link>
               .
             </Notice>

@@ -23,10 +23,10 @@ export function StatusBanner() {
     notes.push(
       s.hasAnthropicKey
         ? "AI features are in sample mode (AI_MOCK=1)."
-        : "AI features are in sample mode until you add ANTHROPIC_API_KEY to .env.local.",
+        : "AI features are in sample mode until ANTHROPIC_API_KEY is set.",
     );
   if (!s.jobsMock && !s.sources.jsearch?.available)
-    notes.push("Add RAPIDAPI_KEY to .env.local to search LinkedIn, Indeed and Glassdoor through JSearch.");
+    notes.push("Set RAPIDAPI_KEY to search LinkedIn, Indeed and Glassdoor through JSearch.");
   if (!notes.length) return null;
   return (
     <div className="border-b border-amber/40 bg-amber-soft px-4 py-2 text-sm md:px-8">

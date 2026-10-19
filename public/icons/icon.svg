@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#14283a"/>
+  <!-- card stack: a job card with a freshness bar, one behind it tilted -->
+  <rect x="150" y="118" width="250" height="300" rx="28" fill="#2a3f4f" transform="rotate(8 275 268)"/>
+  <rect x="112" y="104" width="250" height="300" rx="28" fill="#edf1f3"/>
+  <rect x="140" y="140" width="16" height="84" rx="8" fill="#1e6b57"/>
+  <rect x="178" y="146" width="150" height="22" rx="11" fill="#14283a"/>
+  <rect x="178" y="186" width="104" height="16" rx="8" fill="#8095a5"/>
+  <rect x="140" y="262" width="194" height="14" rx="7" fill="#ccd6dd"/>
+  <rect x="140" y="292" width="160" height="14" rx="7" fill="#ccd6dd"/>
+  <circle cx="318" cy="352" r="44" fill="#1e6b57"/>
+  <path d="M298 352l14 14 26-28" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

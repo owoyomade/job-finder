@@ -60,6 +60,44 @@ export interface Job {
   matchScore?: number;
   missingKeywords?: string[];
   expired?: boolean;
+  applicationStatus?: ApplicationStatus | null;
+}
+
+// ---------- Applications (Sprout-style tracker) ----------
+
+export const APPLICATION_STATUSES = [
+  "interested",
+  "ready",
+  "applied",
+  "interview",
+  "offer",
+  "rejected",
+  "skipped",
+] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  interested: "Interested",
+  ready: "Ready to apply",
+  applied: "Applied",
+  interview: "Interviewing",
+  offer: "Offer",
+  rejected: "Not selected",
+  skipped: "Skipped",
+};
+
+export interface JobQuestion {
+  id: string;
+  question: string;
+  hint?: string;
+}
+
+export interface Application {
+  jobId: string;
+  status: ApplicationStatus;
+  answers: { question: string; answer: string }[];
+  history: { status: ApplicationStatus; at: string }[];
+  updatedAt: string;
 }
 
 export type PostedWithin = "1" | "3" | "7" | "14" | "30";

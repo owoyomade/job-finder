@@ -216,3 +216,23 @@ describe("location", () => {
     expect(out.map((j) => j.id)).toEqual(["to", "rem", "unk"]);
   });
 });
+
+describe("job questions", () => {
+  it("asks about missing keywords and drops blank or 'no' answers from prompts", async () => {
+    const { buildJobQuestions, answersBlock } = await import("../questions");
+    const qs = buildJobQuestions(
+      job({ description: "We need SQL, Tableau and Snowflake experience.", company: "Acme" }),
+      "SQL reporting",
+    );
+    expect(qs.map((q) => q.question).join(" ")).toMatch(/Tableau/);
+    expect(qs.at(-1)?.question).toMatch(/Acme/);
+    const block = answersBlock([
+      { question: "Tableau?", answer: "Built two dashboards" },
+      { question: "Snowflake?", answer: "no" },
+      { question: "Why?", answer: "  " },
+    ]);
+    expect(block).toContain("Built two dashboards");
+    expect(block).not.toContain("Snowflake?");
+    expect(answersBlock([])).toBe("");
+  });
+});

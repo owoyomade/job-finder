@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Offline – Job Finder</title>
+<style>
+  :root { --paper:#edf1f3; --ink:#14283a; --muted:#557083; --spruce:#1e6b57; }
+  @media (prefers-color-scheme: dark) { :root { --paper:#0f1a23; --ink:#e4ecf1; --muted:#93a9b8; --spruce:#4fb592; } }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--paper); color:var(--ink);
+         font:16px/1.5 system-ui, -apple-system, sans-serif; padding:24px; box-sizing:border-box; text-align:center; }
+  img { width:72px; height:72px; border-radius:16px; }
+  h1 { font-size:22px; margin:16px 0 4px; }
+  p { color:var(--muted); margin:0 0 20px; max-width:32ch; }
+  button { background:var(--spruce); color:#fff; border:0; border-radius:8px; padding:10px 18px; font-weight:600; font-size:15px; }
+</style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="">
+    <h1>You’re offline</h1>
+    <p>Job Finder needs an internet connection to search jobs and write documents.</p>
+    <button onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>

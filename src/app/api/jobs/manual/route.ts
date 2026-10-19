@@ -1,5 +1,5 @@
 import { handle, HttpError } from "@/lib/api";
-import { createManualJob } from "@/lib/db";
+import { createManualJob, setApplicationStatus } from "@/lib/db";
 
 export const POST = handle(async (req: Request) => {
   const b = await req.json();
@@ -13,5 +13,6 @@ export const POST = handle(async (req: Request) => {
     description,
     applyUrl: String(b.applyUrl ?? "").trim(),
   });
+  setApplicationStatus(job.id, "interested");
   return Response.json({ job });
 });
