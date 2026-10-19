@@ -68,6 +68,7 @@ export interface Job {
 export const APPLICATION_STATUSES = [
   "interested",
   "ready",
+  "couldnt_apply",
   "applied",
   "interview",
   "offer",
@@ -79,6 +80,7 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   interested: "Interested",
   ready: "Ready to apply",
+  couldnt_apply: "Couldn’t apply",
   applied: "Applied",
   interview: "Interviewing",
   offer: "Offer",
@@ -106,19 +108,62 @@ export interface Application {
   jobId: string;
   status: ApplicationStatus;
   answers: { question: string; answer: string }[];
-  history: { status: ApplicationStatus; at: string }[];
+  history: { status: ApplicationStatus; at: string; note?: string }[];
   prep: PrepState;
   updatedAt: string;
 }
+
+/** Why an application couldn't be finished (Sprout's "Failed"), so you can come back to it. */
+export const COULDNT_APPLY_REASONS = [
+  "The site had an error",
+  "Needed an account or login",
+  "Posting was closed",
+  "Long assessment to do later",
+  "Something else",
+] as const;
+
+/** Statuses you can pick by hand (everything except "skipped"). */
+export const PICKABLE_STATUSES = APPLICATION_STATUSES.filter((s) => s !== "skipped");
 
 export interface Prefs {
   /** What happens on a right swipe: ask the quick questions first, or build the kit straight away. */
   swipeAction: "ask" | "auto";
   /** Include interview questions in the automatic kit. */
   kitInterview: boolean;
+  /** Daily push notification with new jobs for the current search. */
+  alertsEnabled: boolean;
+  /** Local hour (0–23) to send the daily alert. */
+  alertHour: number;
+  alertTimezone: string;
+  /** Set once the first-run welcome flow is finished or skipped. */
+  onboarded: boolean;
 }
 
-export const DEFAULT_PREFS: Prefs = { swipeAction: "ask", kitInterview: true };
+export const CANADIAN_TIMEZONES = [
+  { id: "America/Vancouver", label: "Pacific (BC)" },
+  { id: "America/Edmonton", label: "Mountain (AB)" },
+  { id: "America/Regina", label: "Saskatchewan" },
+  { id: "America/Winnipeg", label: "Central (MB)" },
+  { id: "America/Toronto", label: "Eastern (ON, QC)" },
+  { id: "America/Halifax", label: "Atlantic (NS, NB, PE)" },
+  { id: "America/St_Johns", label: "Newfoundland" },
+] as const;
+
+export const DEFAULT_PREFS: Prefs = {
+  swipeAction: "ask",
+  kitInterview: true,
+  alertsEnabled: false,
+  alertHour: 8,
+  alertTimezone: "America/Toronto",
+  onboarded: false,
+};
+
+export interface AlertState {
+  lastRunDate?: string; // YYYY-MM-DD in the alert timezone
+  lastRunAt?: string;
+  lastNewCount?: number;
+  lastError?: string;
+}
 
 export type PostedWithin = "1" | "3" | "7" | "14" | "30";
 

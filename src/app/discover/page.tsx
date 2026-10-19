@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { DEFAULT_PREFS, LEVEL_LABELS, type Job, type Prefs, type SearchParams } from "@/lib/types";
 import { AgeStamp } from "@/components/JobRow";
@@ -13,6 +14,7 @@ type Deck = { params: SearchParams | null; jobs: Job[]; seen?: number };
 const THRESHOLD = 110;
 
 export default function DiscoverPage() {
+  const router = useRouter();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -24,6 +26,17 @@ export default function DiscoverPage() {
   useEffect(() => {
     api<{ prefs: Prefs }>("/api/prefs").then((r) => setPrefs(r.prefs)).catch(() => {});
   }, []);
+
+  // First visit with nothing set up: show the welcome flow instead.
+  useEffect(() => {
+    if (deck && !deck.params && !prefs.onboarded) {
+      api<{ prefs: Prefs }>("/api/prefs")
+        .then((r) => {
+          if (!r.prefs.onboarded) router.replace("/welcome");
+        })
+        .catch(() => {});
+    }
+  }, [deck, prefs.onboarded, router]);
 
   useEffect(() => {
     if (!toast) return;

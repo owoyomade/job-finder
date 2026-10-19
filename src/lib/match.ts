@@ -133,6 +133,11 @@ export function extractKeywords(description: string, limit = 30): string[] {
     }
   }
 
+  // Keep the more specific phrase: drop "safety" when "health and safety" was found.
+  for (const k of [...found.keys()]) {
+    if ([...found.keys()].some((other) => other !== k && other.includes(" ") && containsTerm(other, k))) found.delete(k);
+  }
+
   return [...found.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)

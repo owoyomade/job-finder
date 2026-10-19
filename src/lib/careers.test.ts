@@ -37,6 +37,12 @@ describe("keywords work outside office jobs", () => {
     expect(k).toEqual(expect.arrayContaining(["309a", "red seal", "whmis", "working at heights", "lockout/tagout", "blueprint reading", "plc", "g licence"]));
   });
 
+  it("keeps the more specific phrase", () => {
+    const k = extractKeywords("Follow health and safety rules. Safety boots required.");
+    expect(k).toContain("health and safety");
+    expect(k).not.toContain("safety");
+  });
+
   it("finds nursing credentials and skills", () => {
     const k = extractKeywords(NURSE);
     expect(k).toEqual(expect.arrayContaining(["rpn", "bls", "medication administration", "wound care", "dementia care", "charting"]));

@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   // Keep these as plain Node requires on the server instead of bundling them.
-  serverExternalPackages: ["@react-pdf/renderer", "unpdf", "mammoth", "docx"],
+  serverExternalPackages: ["@react-pdf/renderer", "unpdf", "mammoth", "docx", "web-push"],
   async headers() {
     return [
       {

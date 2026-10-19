@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { DEFAULT_PREFS, type Prefs } from "@/lib/types";
 import { cx } from "./ui";
+import { JobAlerts } from "./JobAlerts";
 
 /** How the automatic application kit behaves. Saved as soon as you change it. */
 export function AppSettings() {
@@ -16,7 +17,7 @@ export function AppSettings() {
       .catch(() => setPrefs(DEFAULT_PREFS));
   }, []);
 
-  async function update(patch: Partial<Prefs>) {
+  async function update(patch: Partial<Prefs>): Promise<void> {
     setPrefs((p) => ({ ...(p ?? DEFAULT_PREFS), ...patch }));
     const r = await api<{ prefs: Prefs }>("/api/prefs", { method: "PUT", json: patch });
     setPrefs(r.prefs);
@@ -67,6 +68,8 @@ export function AppSettings() {
         <input type="checkbox" checked={prefs.kitInterview} onChange={(e) => update({ kitInterview: e.target.checked })} />
         Include interview questions with answers in every kit
       </label>
+
+      <JobAlerts prefs={prefs} onChange={update} />
     </section>
   );
 }

@@ -15,9 +15,10 @@ export const GET = handle(async (_req: NextRequest, ctx: Ctx) => {
 export const PUT = handle(async (req: NextRequest, ctx: Ctx) => {
   const jobId = await idOf(ctx);
   requireJob(jobId);
-  const { status } = (await req.json()) as { status?: ApplicationStatus };
+  const { status, note } = (await req.json()) as { status?: ApplicationStatus; note?: string };
   if (!status || !APPLICATION_STATUSES.includes(status)) throw new HttpError(400, "Unknown status.");
-  return Response.json({ application: setApplicationStatus(jobId, status) });
+  const cleanNote = typeof note === "string" && note.trim() ? note.trim().slice(0, 300) : undefined;
+  return Response.json({ application: setApplicationStatus(jobId, status, cleanNote) });
 });
 
 export const DELETE = handle(async (_req: NextRequest, ctx: Ctx) => {

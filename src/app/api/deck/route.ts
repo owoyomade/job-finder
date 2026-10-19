@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { handle } from "@/lib/api";
-import { getSetting } from "@/lib/db";
+import { getSetting, markJobsSeen } from "@/lib/db";
 import { runSearch } from "@/lib/service";
 import type { SearchParams } from "@/lib/types";
 
@@ -9,6 +9,8 @@ const deck = handle(async () => {
   const params = getSetting<SearchParams>("lastSearch");
   if (!params) return Response.json({ params: null, jobs: [] });
   const result = await runSearch(params);
+  // Jobs shown in the deck shouldn't come back as "new" in tomorrow's alert.
+  markJobsSeen(result.jobs.map((j) => j.id));
   return Response.json({
     params,
     jobs: result.jobs.filter((j) => !j.applicationStatus),

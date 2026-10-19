@@ -63,6 +63,15 @@ function getDb(): DatabaseSync {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS seen_jobs (
+      job_id TEXT PRIMARY KEY,
+      first_seen TEXT NOT NULL
+    );
   `);
   // Columns added after the first release.
   const appCols = (db.prepare("PRAGMA table_info(applications)").all() as { name: string }[]).map((c) => c.name);
@@ -275,10 +284,12 @@ export function getApplication(jobId: string): Application | null {
 }
 
 /** Create or move an application to a new status, keeping a dated history. */
-export function setApplicationStatus(jobId: string, status: ApplicationStatus): Application {
+export function setApplicationStatus(jobId: string, status: ApplicationStatus, note?: string): Application {
   const existing = getApplication(jobId);
   const at = now();
-  const history = existing?.status === status ? existing.history : [...(existing?.history ?? []), { status, at }];
+  const entry = note ? { status, at, note } : { status, at };
+  const history =
+    existing?.status === status && !note ? existing.history : [...(existing?.history ?? []), entry];
   getDb()
     .prepare(
       `INSERT INTO applications (job_id, status, answers, history, updated_at) VALUES (?, ?, ?, ?, ?)
@@ -340,4 +351,41 @@ export function setSetting(key: string, value: unknown) {
   getDb()
     .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(key, JSON.stringify(value));
+}
+
+// ---------- Push subscriptions ----------
+
+export interface StoredPushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export function savePushSubscription(sub: StoredPushSubscription) {
+  getDb()
+    .prepare(
+      `INSERT INTO push_subscriptions (endpoint, data, created_at) VALUES (?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET data = excluded.data`,
+    )
+    .run(sub.endpoint, JSON.stringify(sub), now());
+}
+
+export function deletePushSubscription(endpoint: string) {
+  getDb().prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
+}
+
+export function listPushSubscriptions(): StoredPushSubscription[] {
+  return (getDb().prepare("SELECT data FROM push_subscriptions").all() as { data: string }[]).map((r) =>
+    JSON.parse(r.data),
+  );
+}
+
+// ---------- Jobs already shown in an alert ----------
+
+/** Record job ids and return only the ones never seen before. */
+export function markJobsSeen(jobIds: string[]): string[] {
+  const fresh: string[] = [];
+  const stmt = getDb().prepare("INSERT OR IGNORE INTO seen_jobs (job_id, first_seen) VALUES (?, ?)");
+  const at = now();
+  for (const id of jobIds) if (Number(stmt.run(id, at).changes) > 0) fresh.push(id);
+  return fresh;
 }

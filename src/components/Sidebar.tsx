@@ -33,7 +33,7 @@ async function signOut() {
 /** Desktop: left sidebar. Hidden on phones, where BottomNav takes over. */
 export function SidebarNav({ authEnabled }: { authEnabled: boolean }) {
   const path = usePathname();
-  if (path === "/login") return null;
+  if (path === "/login" || path === "/welcome") return null;
   return (
     <aside className="hidden border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:w-56 md:shrink-0 md:flex-col">
       <Link href="/discover" className="mb-8 block font-display text-xl font-extrabold tracking-tight">
@@ -67,7 +67,7 @@ export function SidebarNav({ authEnabled }: { authEnabled: boolean }) {
 /** Phones: app-style tab bar pinned to the bottom, clear of the home indicator. */
 export function BottomNav() {
   const path = usePathname();
-  if (path === "/login") return null;
+  if (path === "/login" || path === "/welcome") return null;
   return (
     <nav
       aria-label="Main"

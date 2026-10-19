@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
 import {
+  PICKABLE_STATUSES,
   STATUS_LABELS,
+  COULDNT_APPLY_REASONS,
   type Application,
   type ApplicationStatus,
   type Job,
@@ -18,7 +20,7 @@ import { Button, Empty, PageHeader, Spinner, Tag, cx, inputClass } from "@/compo
 type Row = Application & { job: Job | null };
 
 const GROUPS: { id: string; label: string; statuses: ApplicationStatus[] }[] = [
-  { id: "todo", label: "To do", statuses: ["interested", "ready"] },
+  { id: "todo", label: "To do", statuses: ["interested", "ready", "couldnt_apply"] },
   { id: "applied", label: "Applied", statuses: ["applied", "interview", "offer"] },
   { id: "closed", label: "Closed", statuses: ["rejected"] },
 ];
@@ -26,6 +28,7 @@ const GROUPS: { id: string; label: string; statuses: ApplicationStatus[] }[] = [
 const TONE: Partial<Record<ApplicationStatus, "spruce" | "amber" | "rust" | "plain">> = {
   interested: "plain",
   ready: "amber",
+  couldnt_apply: "rust",
   applied: "spruce",
   interview: "spruce",
   offer: "spruce",
@@ -38,6 +41,7 @@ export default function ApplicationsPage() {
   const [group, setGroup] = useState("todo");
   const [preparing, setPreparing] = useState<Job | null>(null);
   const [confirmApplied, setConfirmApplied] = useState<string | null>(null);
+  const [askReason, setAskReason] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   async function load() {
@@ -79,9 +83,9 @@ export default function ApplicationsPage() {
     await load();
   }
 
-  async function setStatus(jobId: string, status: ApplicationStatus) {
+  async function setStatus(jobId: string, status: ApplicationStatus, note?: string) {
     setRows((rs) => rs?.map((r) => (r.jobId === jobId ? { ...r, status } : r)) ?? null);
-    await api(`/api/applications/${encodeURIComponent(jobId)}`, { method: "PUT", json: { status } });
+    await api(`/api/applications/${encodeURIComponent(jobId)}`, { method: "PUT", json: { status, note } });
     await load();
   }
 
@@ -165,6 +169,12 @@ export default function ApplicationsPage() {
                         {job.company} <span className="text-muted">— {job.location}</span>
                       </p>
                     )}
+                    {r.status === "couldnt_apply" && (
+                      <p className="mt-1 text-xs text-rust">
+                        {[...r.history].reverse().find((h) => h.status === "couldnt_apply")?.note ?? "Not finished yet"}.
+                        {(resume || cover) && " Your documents are ready below when you try again."}
+                      </p>
+                    )}
                     {appliedAt && (
                       <p className="mt-1 text-xs text-muted">
                         Applied {new Date(appliedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
@@ -199,18 +209,21 @@ export default function ApplicationsPage() {
                   {r.status === "interested" && job && prep.state !== "preparing" && (
                     <Button onClick={() => setPreparing(job)}>Build application kit</Button>
                   )}
-                  {(r.status === "ready" || r.status === "interested") && job?.applyUrl && (
+                  {(r.status === "ready" || r.status === "interested" || r.status === "couldnt_apply") && job?.applyUrl && (
                     <a
                       href={job.applyUrl}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => setConfirmApplied(r.jobId)}
+                      onClick={() => {
+                        setAskReason(null);
+                        setConfirmApplied(r.jobId);
+                      }}
                       className={cx(
                         "inline-flex items-center rounded-md px-3.5 py-2 text-sm font-semibold",
-                        r.status === "ready" ? "bg-spruce text-white dark:text-[#0f1a23]" : "border border-line hover:bg-sunken",
+                        r.status === "interested" ? "border border-line hover:bg-sunken" : "bg-spruce text-white dark:text-[#0f1a23]",
                       )}
                     >
-                      Open application
+                      {r.status === "couldnt_apply" ? "Try again" : "Open application"}
                     </a>
                   )}
                   {resume && (
@@ -238,7 +251,7 @@ export default function ApplicationsPage() {
                       value={r.status}
                       onChange={(e) => setStatus(r.jobId, e.target.value as ApplicationStatus)}
                     >
-                      {(["interested", "ready", "applied", "interview", "offer", "rejected"] as const).map((s) => (
+                      {PICKABLE_STATUSES.map((s) => (
                         <option key={s} value={s}>
                           {STATUS_LABELS[s]}
                         </option>
@@ -251,20 +264,47 @@ export default function ApplicationsPage() {
                 </div>
 
                 {confirmApplied === r.jobId && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-spruce-soft px-3 py-2 text-sm" role="status">
-                    <span>Did you send the application?</span>
-                    <Button
-                      className="py-1"
-                      onClick={() => {
-                        setConfirmApplied(null);
-                        setStatus(r.jobId, "applied");
-                      }}
-                    >
-                      Yes, mark as applied
-                    </Button>
-                    <Button variant="ghost" className="py-1" onClick={() => setConfirmApplied(null)}>
-                      Not yet
-                    </Button>
+                  <div className="mt-3 rounded-md bg-spruce-soft px-3 py-2 text-sm" role="status">
+                    {askReason !== r.jobId ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>Did you send the application?</span>
+                        <Button
+                          className="py-1"
+                          onClick={() => {
+                            setConfirmApplied(null);
+                            setStatus(r.jobId, "applied");
+                          }}
+                        >
+                          Yes, I applied
+                        </Button>
+                        <Button variant="secondary" className="py-1" onClick={() => setAskReason(r.jobId)}>
+                          Couldn’t apply
+                        </Button>
+                        <Button variant="ghost" className="py-1" onClick={() => setConfirmApplied(null)}>
+                          Not yet
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="mb-2">What got in the way? We’ll keep it in To do so you can finish later.</p>
+                        <div className="flex flex-wrap gap-2">
+                          {COULDNT_APPLY_REASONS.map((reason) => (
+                            <button
+                              key={reason}
+                              type="button"
+                              className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-sunken"
+                              onClick={() => {
+                                setConfirmApplied(null);
+                                setAskReason(null);
+                                setStatus(r.jobId, "couldnt_apply", reason);
+                              }}
+                            >
+                              {reason}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>

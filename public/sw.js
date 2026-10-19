@@ -1,6 +1,6 @@
 // Job Finder service worker: makes the app installable and shows a friendly
 // page when you're offline. Job data always comes fresh from the network.
-const CACHE = "jobfinder-v1";
+const CACHE = "jobfinder-v2";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"];
 
@@ -45,4 +45,39 @@ self.addEventListener("fetch", (event) => {
     );
   }
   // Everything else (API calls, documents) goes straight to the network.
+});
+
+// ---------- Daily job alerts ----------
+
+self.addEventListener("push", (event) => {
+  let data = { title: "Job Finder", body: "You have new jobs to look at.", url: "/discover" };
+  try {
+    data = { ...data, ...event.data.json() };
+  } catch {
+    /* plain-text or empty push */
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: data.tag || "jobs",
+      data: { url: data.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/discover", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      const existing = wins.find((w) => w.url.startsWith(self.location.origin));
+      if (existing) {
+        existing.navigate(url);
+        return existing.focus();
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });

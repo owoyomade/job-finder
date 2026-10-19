@@ -6,7 +6,9 @@ A personal job-hunting app for iPhone, Android and desktop, modelled on swipe-to
 - **A few quick questions**: after you swipe right, the app asks about skills the job wants that your resume doesn't mention yet. Your answers are used as real facts, and nothing is made up.
 - **Automatic application kit**: from each job description, the app builds an ATS-friendly tailored resume, a cover letter and interview questions with model answers, in the background while you keep swiping. In Settings (on My resume), choose whether a right swipe asks the quick questions first or builds the kit straight away. Pasted jobs build their kit automatically too.
 - **Licences first when they matter**: for trades, healthcare, driving and similar roles, required tickets, licences and registrations (Red Seal, AZ, RPN, Smart Serve…) move to the top of the resume.
-- **Applications tracker**: Interested → Ready → Applied → Interviewing → Offer. "Open application" takes you to the employer's page with your documents ready, and one tap marks it as applied.
+- **Applications tracker**: Interested → Ready → Applied → Interviewing → Offer. "Open application" takes you to the employer's page with your documents ready, and one tap marks it as applied. If you can't finish (site error, account needed, posting closed), mark it **Couldn't apply** with the reason, and it stays in To do with a **Try again** button.
+- **Daily new-job alerts**: a push notification once a day at the time you choose, listing jobs from your search that you haven't seen yet. Works on Android, and on iPhone once the app is added to the Home Screen (iOS 16.4+).
+- **First-run setup**: a short welcome flow covering your resume, level and location, first search, swipe preference and alerts.
 - **Interview prep**: 20–80 likely questions for the role, each with a model answer built from your resume.
 - **Screens out old postings** and **asks your job level** (Internship → Director+). Also links to GC Jobs and provincial and municipal job sites.
 
@@ -41,6 +43,8 @@ Without the AI or JSearch keys the app still runs. Job Bank and Remotive search 
 5. Under **Settings → Networking**, click **Generate Domain**. Open that URL and sign in with your password.
 
 Every push to `main` redeploys automatically.
+
+Daily alerts are sent by the running server, so leave Railway's **App Sleeping** (serverless) setting **off**. Push keys are created automatically and stored in the database. To manage them yourself, set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (a `mailto:` address).
 
 ## Install on your phone
 

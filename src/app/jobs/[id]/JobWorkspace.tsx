@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { matchResume, profileToText, type MatchResult } from "@/lib/match";
 import {
   LEVEL_LABELS,
+  PICKABLE_STATUSES,
   STATUS_LABELS,
   type ApplicationStatus,
   type PrepState,
@@ -189,7 +190,7 @@ export function JobWorkspace() {
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
               >
-                {(["interested", "ready", "applied", "interview", "offer", "rejected"] as const).map((s) => (
+                {PICKABLE_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {STATUS_LABELS[s]}
                   </option>
