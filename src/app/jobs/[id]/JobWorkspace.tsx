@@ -9,6 +9,7 @@ import {
   LEVEL_LABELS,
   STATUS_LABELS,
   type ApplicationStatus,
+  type PrepState,
   type CoverLetter,
   type InterviewSet,
   type Job,
@@ -17,7 +18,8 @@ import {
 } from "@/lib/types";
 import { AgeStamp } from "@/components/JobRow";
 import { InterviewViewer } from "@/components/InterviewViewer";
-import { Button, Empty, ErrorNote, LinkButton, Notice, Tag, cx, inputClass } from "@/components/ui";
+import { startKit } from "@/components/PrepareSheet";
+import { Button, Empty, ErrorNote, LinkButton, Notice, Spinner, Tag, cx, inputClass } from "@/components/ui";
 
 type JobView = Job & { saved: boolean; descriptionError?: string };
 type Tab = "description" | "resume" | "cover" | "interview";
@@ -40,6 +42,8 @@ export function JobWorkspace() {
     TABS.some((t) => t.id === initialTab) ? (initialTab as Tab) : "description",
   );
   const [status, setStatusState] = useState<ApplicationStatus | null>(null);
+  const [prep, setPrep] = useState<PrepState>({ state: "idle" });
+  const [kitError, setKitError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState<{ open: boolean | null; reason: string } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -82,11 +86,42 @@ export function JobWorkspace() {
     }
   }
 
+  // Load the application, and keep refreshing it (and the documents) while the kit builds.
+  const preparing = prep.state === "preparing";
   useEffect(() => {
-    api<{ application: { status: ApplicationStatus } | null }>(`/api/applications/${encodeURIComponent(jobId)}`)
-      .then((r) => setStatusState(r.application?.status ?? null))
-      .catch(() => {});
-  }, [jobId]);
+    let cancelled = false;
+    const refresh = () =>
+      Promise.all([
+        api<{ application: { status: ApplicationStatus; prep: PrepState } | null }>(
+          `/api/applications/${encodeURIComponent(jobId)}`,
+        ),
+        api<{ documents: StoredDocument[] }>(`/api/documents?jobId=${encodeURIComponent(jobId)}`),
+      ])
+        .then(([a, d]) => {
+          if (cancelled) return;
+          setStatusState(a.application?.status ?? null);
+          setPrep(a.application?.prep ?? { state: "idle" });
+          setDocs(d.documents);
+        })
+        .catch(() => {});
+    refresh();
+    const timer = preparing ? setInterval(refresh, 4000) : null;
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [jobId, preparing]);
+
+  async function buildKit() {
+    setKitError(null);
+    try {
+      await startKit(jobId);
+      setPrep({ state: "preparing" });
+      setStatusState((s) => s ?? "interested");
+    } catch (e) {
+      setKitError((e as Error).message);
+    }
+  }
 
   async function setStatus(next: ApplicationStatus) {
     setStatusState(next);
@@ -121,7 +156,7 @@ export function JobWorkspace() {
       <header className="mt-3 flex flex-wrap items-start gap-4">
         <AgeStamp postedAt={job.postedAt} expired={job.expired} />
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-3xl font-bold leading-tight tracking-tight">{job.title}</h1>
+          <h1 className="font-display text-2xl font-bold leading-tight tracking-tight md:text-3xl">{job.title}</h1>
           <p className="mt-1">
             {job.company} <span className="text-muted">— {job.location}</span>
           </p>
@@ -135,7 +170,7 @@ export function JobWorkspace() {
             {job.publisher && <Tag>via {job.publisher}</Tag>}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap gap-2 md:w-auto">
           {job.applyUrl && (
             <a
               href={job.applyUrl}
@@ -173,6 +208,13 @@ export function JobWorkspace() {
           )}
         </div>
       </header>
+
+      <KitBanner
+        prep={prep}
+        hasDocs={docs.length > 0}
+        error={kitError}
+        onBuild={buildKit}
+      />
 
       {check && (
         <p
@@ -619,4 +661,65 @@ function InterviewTab({ job, doc, onDone }: { job: JobView; doc: StoredDocument 
       )}
     </div>
   );
+}
+
+// ---------- Application kit banner ----------
+
+function KitBanner({
+  prep,
+  hasDocs,
+  error,
+  onBuild,
+}: {
+  prep: PrepState;
+  hasDocs: boolean;
+  error: string | null;
+  onBuild: () => void;
+}) {
+  if (prep.state === "preparing") {
+    return (
+      <p className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-sunken px-4 py-3 text-sm" role="status">
+        <Spinner /> Building your application kit: tailored resume, cover letter and interview prep. The tabs below fill in
+        when it’s done.
+      </p>
+    );
+  }
+  if (error || prep.state === "error") {
+    return (
+      <div className="mt-5 rounded-lg border border-rust/40 bg-rust-soft px-4 py-3 text-sm text-rust" role="alert">
+        Couldn’t build the kit: {error ?? prep.error}{" "}
+        {(error ?? prep.error ?? "").includes("My resume") ? (
+          <Link href="/profile" className="font-semibold underline">
+            Add my resume
+          </Link>
+        ) : (
+          <button type="button" className="font-semibold underline" onClick={onBuild}>
+            Try again
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (!hasDocs) {
+    return (
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-spruce/40 bg-spruce-soft px-4 py-3">
+        <p className="text-sm">
+          <span className="font-semibold">One tap for everything:</span> a tailored ATS resume, a cover letter and
+          interview questions with answers, all from this job description.
+        </p>
+        <Button onClick={onBuild}>Build application kit</Button>
+      </div>
+    );
+  }
+  if (prep.state === "done" && prep.failed?.length) {
+    return (
+      <p className="mt-5 text-sm text-amber">
+        Some parts didn’t finish ({prep.failed.join(", ")}).{" "}
+        <button type="button" className="font-semibold underline" onClick={onBuild}>
+          Rebuild kit
+        </button>
+      </p>
+    );
+  }
+  return null;
 }

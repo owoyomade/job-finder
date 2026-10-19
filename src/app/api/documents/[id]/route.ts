@@ -17,7 +17,10 @@ export const GET = handle(async (_req: NextRequest, ctx: RouteContext<"/api/docu
 
 export const PUT = handle(async (req: NextRequest, ctx: RouteContext<"/api/documents/[id]">) => {
   const doc = load((await ctx.params).id);
-  const parsed = SCHEMAS[doc.kind].safeParse((await req.json()).data);
+  const data = (await req.json()).data;
+  // Resumes saved before licencesFirst existed don't have the field.
+  if (doc.kind === "resume" && data && data.licencesFirst === undefined) data.licencesFirst = false;
+  const parsed = SCHEMAS[doc.kind].safeParse(data);
   if (!parsed.success) throw new HttpError(400, "Edited document is invalid.");
   updateDocument(doc.id, parsed.data);
   return Response.json({ document: { ...doc, data: parsed.data } });

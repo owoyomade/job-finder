@@ -9,23 +9,52 @@ import type { Application, Job, JobQuestion } from "./types";
 const pretty = (k: string) =>
   k.length <= 4 && !k.includes(" ") ? k.toUpperCase() : k.replace(/\b\w/g, (c) => c.toUpperCase());
 
+/** Licences, tickets, registrations and clearances: things you hold rather than use. */
+const CREDENTIAL =
+  /(licen[cs]e|certif|ticket|red seal|registration|clearance|enhanced reliability|smart serve|food handler|whmis|first aid|\bcpr\b|\bbls\b|\bacls\b|\bpals\b|\baz\b|\bdz\b|class [1-5]|\bg2?\b|air brake|cvor|\brn\b|\brpn\b|\bpsw\b|\blpn\b|\boct\b|\brece\b|\bcpa\b|\bpmp\b|p\.eng|\b\d{3}a\b|journey|vulnerable sector|abstract)/i;
+
+export function isCredential(keyword: string): boolean {
+  return CREDENTIAL.test(keyword);
+}
+
+const HINT = "Leave blank if not. Nothing will be made up.";
+
+function keywordQuestion(k: string): JobQuestion {
+  const name = pretty(k);
+  if (/journey/i.test(k)) {
+    return { id: `kw:${k}`, question: "Are you a certified journeyperson? If so, in which trade and province?", hint: HINT };
+  }
+  if (isCredential(k)) {
+    return {
+      id: `kw:${k}`,
+      question: `Do you hold a valid ${name}? If so, add any details (level, number, expiry, province).`,
+      hint: HINT,
+    };
+  }
+  return { id: `kw:${k}`, question: `Do you have experience with ${name}? If so, where and what did you do?`, hint: HINT };
+}
+
+/** Red Seal and a trade code (309A, 442A…) are the same certificate: ask once. */
+function mergeTradeCertificate(keywords: string[]): string[] {
+  const code = keywords.find((k) => /^\d{3}a$/i.test(k));
+  if (!code || !keywords.includes("red seal")) return keywords;
+  return keywords.filter((k) => k !== code).map((k) => (k === "red seal" ? `${code.toUpperCase()} Red Seal` : k));
+}
+
 export function buildJobQuestions(job: Job, resumeText: string | null): JobQuestion[] {
   const qs: JobQuestion[] = [];
   if (resumeText && job.description) {
     const { missing } = matchResume(resumeText, job.description);
-    for (const k of missing.slice(0, 3)) {
-      qs.push({
-        id: `kw:${k}`,
-        question: `Have you used ${pretty(k)}? If so, where and what did you do with it?`,
-        hint: "Leave blank if not. Nothing will be made up.",
-      });
-    }
+    // Ask about required credentials first; they often decide who gets an interview.
+    const merged = mergeTradeCertificate(missing);
+    const ordered = [...merged.filter(isCredential), ...merged.filter((k) => !isCredential(k))];
+    for (const k of ordered.slice(0, 3)) qs.push(keywordQuestion(k));
   }
   if (job.levelFit === "stretch") {
     qs.push({
       id: "stretch",
       question: "This role asks for a bit more experience than your target level. Anything extra worth highlighting?",
-      hint: "Side projects, acting-lead work, bigger responsibilities",
+      hint: "Training others, acting in a senior role, extra responsibilities, volunteer work",
     });
   }
   qs.push({

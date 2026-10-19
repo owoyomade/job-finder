@@ -11,9 +11,9 @@ import {
   type StoredDocument,
 } from "@/lib/types";
 import { AgeStamp } from "@/components/JobRow";
-import { PrepareSheet } from "@/components/PrepareSheet";
+import { PrepareSheet, startKit } from "@/components/PrepareSheet";
 import { AddJobForm } from "@/components/AddJobForm";
-import { Button, Empty, PageHeader, Tag, cx, inputClass } from "@/components/ui";
+import { Button, Empty, PageHeader, Spinner, Tag, cx, inputClass } from "@/components/ui";
 
 type Row = Application & { job: Job | null };
 
@@ -49,15 +49,35 @@ export default function ApplicationsPage() {
     setDocs(d.documents);
   }
 
+  const anyPreparing = rows?.some((r) => r.prep?.state === "preparing") ?? false;
+
+  // Load once, then keep refreshing while any application kit is being built.
   useEffect(() => {
-    Promise.all([
-      api<{ applications: Row[] }>("/api/applications"),
-      api<{ documents: StoredDocument[] }>("/api/documents"),
-    ]).then(([a, d]) => {
-      setRows(a.applications);
-      setDocs(d.documents);
-    });
-  }, []);
+    let cancelled = false;
+    const refresh = () =>
+      Promise.all([
+        api<{ applications: Row[] }>("/api/applications"),
+        api<{ documents: StoredDocument[] }>("/api/documents"),
+      ])
+        .then(([a, d]) => {
+          if (cancelled) return;
+          setRows(a.applications);
+          setDocs(d.documents);
+        })
+        .catch(() => {});
+    if (rows === null) refresh();
+    const timer = anyPreparing ? setInterval(refresh, 4000) : null;
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [anyPreparing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function retry(jobId: string) {
+    setRows((rs) => rs?.map((r) => (r.jobId === jobId ? { ...r, prep: { state: "preparing" } } : r)) ?? null);
+    await startKit(jobId).catch(() => {});
+    await load();
+  }
 
   async function setStatus(jobId: string, status: ApplicationStatus) {
     setRows((rs) => rs?.map((r) => (r.jobId === jobId ? { ...r, status } : r)) ?? null);
@@ -123,6 +143,8 @@ export default function ApplicationsPage() {
             const job = r.job;
             const resume = latestDoc(r.jobId, "resume");
             const cover = latestDoc(r.jobId, "cover");
+            const interview = latestDoc(r.jobId, "interview");
+            const prep = r.prep ?? { state: "idle" };
             const appliedAt = [...r.history].reverse().find((h) => h.status === "applied")?.at;
             return (
               <li key={r.jobId} className="rounded-xl border border-line bg-surface p-4">
@@ -151,9 +173,31 @@ export default function ApplicationsPage() {
                   </div>
                 </div>
 
+                {prep.state === "preparing" && (
+                  <p className="mt-3 flex items-center gap-2 rounded-md bg-sunken px-3 py-2 text-sm" role="status">
+                    <Spinner /> Building your resume, cover letter and interview prep…
+                  </p>
+                )}
+                {prep.state === "error" && (
+                  <p className="mt-3 rounded-md bg-rust-soft px-3 py-2 text-sm text-rust" role="alert">
+                    Couldn’t build the kit: {prep.error}{" "}
+                    <button type="button" className="font-semibold underline" onClick={() => retry(r.jobId)}>
+                      Try again
+                    </button>
+                  </p>
+                )}
+                {prep.state === "done" && prep.failed?.length ? (
+                  <p className="mt-3 text-sm text-amber">
+                    Some parts didn’t finish ({prep.failed.join(", ")}).{" "}
+                    <button type="button" className="font-semibold underline" onClick={() => retry(r.jobId)}>
+                      Rebuild kit
+                    </button>
+                  </p>
+                ) : null}
+
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {r.status === "interested" && job && (
-                    <Button onClick={() => setPreparing(job)}>Prepare application</Button>
+                  {r.status === "interested" && job && prep.state !== "preparing" && (
+                    <Button onClick={() => setPreparing(job)}>Build application kit</Button>
                   )}
                   {(r.status === "ready" || r.status === "interested") && job?.applyUrl && (
                     <a
@@ -179,7 +223,7 @@ export default function ApplicationsPage() {
                       Cover letter PDF
                     </a>
                   )}
-                  {(r.status === "applied" || r.status === "interview") && (
+                  {(interview || r.status === "applied" || r.status === "interview") && (
                     <Link
                       href={`/jobs/${encodeURIComponent(r.jobId)}?tab=interview`}
                       className="text-sm font-semibold text-spruce hover:underline"
@@ -236,6 +280,9 @@ export default function ApplicationsPage() {
             setPreparing(null);
             load();
           }}
+          onStarted={(j) =>
+            setRows((rs) => rs?.map((r) => (r.jobId === j.id ? { ...r, prep: { state: "preparing" } } : r)) ?? null)
+          }
         />
       )}
     </>

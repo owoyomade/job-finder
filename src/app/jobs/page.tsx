@@ -132,7 +132,7 @@ export default function JobsPage() {
               className={inputClass}
               value={p.query}
               onChange={(e) => set("query", e.target.value)}
-              placeholder="e.g. Data Analyst"
+              placeholder="e.g. Electrician, Registered Nurse, Data Analyst"
               required
             />
           </Field>

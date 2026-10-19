@@ -3,21 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import type { Job, JobQuestion, StoredDocument } from "@/lib/types";
-import { Button, ErrorNote, LinkButton, Spinner, cx, inputClass } from "./ui";
+import type { Job, JobQuestion } from "@/lib/types";
+import { Button, ErrorNote, Spinner, cx, inputClass } from "./ui";
 
-type Phase = "questions" | "preparing" | "done";
+/** Start building the application kit for a job. Resolves once the build has started. */
+export async function startKit(jobId: string) {
+  await api(`/api/applications/${encodeURIComponent(jobId)}/prepare`, { method: "POST" });
+}
 
 /**
  * Bottom sheet shown after swiping right: a few quick questions, then one tap
- * to generate a tailored resume and cover letter.
+ * to build the tailored resume, cover letter and interview prep in the background.
  */
-export function PrepareSheet({ job, onClose }: { job: Job; onClose: () => void }) {
+export function PrepareSheet({
+  job,
+  onClose,
+  onStarted,
+}: {
+  job: Job;
+  onClose: () => void;
+  onStarted?: (job: Job) => void;
+}) {
   const [questions, setQuestions] = useState<JobQuestion[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [phase, setPhase] = useState<Phase>("questions");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [docs, setDocs] = useState<{ resume: StoredDocument; cover: StoredDocument } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,17 +36,19 @@ export function PrepareSheet({ job, onClose }: { job: Job; onClose: () => void }
     )
       .then((r) => {
         setQuestions(r.questions);
-        setAnswers(Object.fromEntries(r.questions.map((q) => [q.id, r.answers.find((a) => a.question === q.question)?.answer ?? ""])));
+        setAnswers(
+          Object.fromEntries(r.questions.map((q) => [q.id, r.answers.find((a) => a.question === q.question)?.answer ?? ""])),
+        );
       })
       .catch((e) => setError(e.message));
     dialogRef.current?.focus();
   }, [job.id]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && phase !== "preparing" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, phase]);
+  }, [onClose, busy]);
 
   async function saveAnswers() {
     if (!questions) return;
@@ -46,20 +58,17 @@ export function PrepareSheet({ job, onClose }: { job: Job; onClose: () => void }
     });
   }
 
-  async function prepare() {
+  async function build() {
     setError(null);
-    setPhase("preparing");
+    setBusy(true);
     try {
       await saveAnswers();
-      const r = await api<{ resume: StoredDocument; cover: StoredDocument }>(
-        `/api/applications/${encodeURIComponent(job.id)}/prepare`,
-        { method: "POST" },
-      );
-      setDocs(r);
-      setPhase("done");
+      await startKit(job.id);
+      onStarted?.(job);
+      onClose();
     } catch (e) {
       setError((e as Error).message);
-      setPhase("questions");
+      setBusy(false);
     }
   }
 
@@ -68,8 +77,10 @@ export function PrepareSheet({ job, onClose }: { job: Job; onClose: () => void }
     onClose();
   }
 
+  const needsResume = error?.includes("My resume");
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => phase !== "preparing" && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => !busy && onClose()}>
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -81,77 +92,51 @@ export function PrepareSheet({ job, onClose }: { job: Job; onClose: () => void }
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
         <h2 id="prepare-title" className="font-display text-xl font-bold leading-tight">
-          {phase === "done" ? "Ready to apply" : job.title}
+          {job.title}
         </h2>
         <p className="text-sm text-muted">{job.company}</p>
 
-        {phase === "questions" && (
-          <>
-            <p className="mt-4 text-sm">
-              A few quick questions so your resume and cover letter use real details. All optional.
-            </p>
-            {!questions && !error && (
-              <p className="mt-4 flex items-center gap-2 text-sm text-muted">
-                <Spinner /> Reading the posting…
-              </p>
-            )}
-            <div className="mt-4 space-y-4">
-              {questions?.map((q) => (
-                <label key={q.id} className="block text-sm">
-                  <span className="font-semibold">{q.question}</span>
-                  <textarea
-                    className={cx(inputClass, "mt-1 min-h-16")}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                  />
-                  {q.hint && <span className="text-xs text-muted">{q.hint}</span>}
-                </label>
-              ))}
-            </div>
-            <div className="mt-4">
-              <ErrorNote message={error} />
-            </div>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-              <Button onClick={prepare} disabled={!questions} className="sm:flex-1">
-                Prepare resume + cover letter
-              </Button>
-              <Button variant="secondary" onClick={later}>
-                Save for later
-              </Button>
-            </div>
-          </>
+        <p className="mt-4 text-sm">
+          A few quick questions so your resume, cover letter and interview answers use real details. All optional.
+        </p>
+        {!questions && !error && (
+          <p className="mt-4 flex items-center gap-2 text-sm text-muted">
+            <Spinner /> Reading the posting…
+          </p>
         )}
-
-        {phase === "preparing" && (
-          <div className="py-10 text-center" role="status">
-            <Spinner />
-            <p className="mt-3 font-semibold">Tailoring your resume and writing your cover letter…</p>
-            <p className="mt-1 text-sm text-muted">This usually takes under a minute.</p>
-          </div>
-        )}
-
-        {phase === "done" && docs && (
-          <div className="mt-4 space-y-4">
-            <p className="text-sm">Both documents are ready. Open the application, upload them, then mark it as applied.</p>
-            <div className="grid grid-cols-2 gap-2">
-              <LinkButton href={`/api/documents/${docs.resume.id}/export?format=pdf`}>Resume PDF</LinkButton>
-              <LinkButton href={`/api/documents/${docs.resume.id}/export?format=docx`}>Resume DOCX</LinkButton>
-              <LinkButton href={`/api/documents/${docs.cover.id}/export?format=pdf`}>Cover letter PDF</LinkButton>
-              <LinkButton href={`/api/documents/${docs.cover.id}/export?format=docx`}>Cover letter DOCX</LinkButton>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Link
-                href={`/jobs/${encodeURIComponent(job.id)}`}
-                className="inline-flex flex-1 items-center justify-center rounded-md bg-spruce px-3.5 py-2 text-sm font-semibold text-white dark:text-[#0f1a23]"
-              >
-                Review and apply
-              </Link>
-              <Button variant="secondary" onClick={onClose}>
-                Keep swiping
-              </Button>
-            </div>
-          </div>
-        )}
+        <div className="mt-4 space-y-4">
+          {questions?.map((q) => (
+            <label key={q.id} className="block text-sm">
+              <span className="font-semibold">{q.question}</span>
+              <textarea
+                className={cx(inputClass, "mt-1 min-h-16")}
+                value={answers[q.id] ?? ""}
+                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+              />
+              {q.hint && <span className="text-xs text-muted">{q.hint}</span>}
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          <ErrorNote message={error} />
+          {needsResume && (
+            <Link href="/profile" className="text-sm font-semibold text-spruce underline">
+              Add my resume
+            </Link>
+          )}
+        </div>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+          <Button onClick={build} busy={busy} disabled={!questions} className="sm:flex-1">
+            Build my application kit
+          </Button>
+          <Button variant="secondary" onClick={later} disabled={busy}>
+            Save for later
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          Builds a tailored resume, a cover letter and interview questions with answers in the background, so you can
+          keep swiping.
+        </p>
       </div>
     </div>
   );

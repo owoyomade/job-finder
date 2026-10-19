@@ -15,7 +15,7 @@ export const LEVELS = [
 export type Level = (typeof LEVELS)[number];
 
 export const LEVEL_LABELS: Record<Level, string> = {
-  internship: "Internship / Co-op",
+  internship: "Internship / Co-op / Apprentice",
   entry: "New Grad / Entry",
   junior: "Junior (1–3 yrs)",
   intermediate: "Intermediate (3–5 yrs)",
@@ -92,13 +92,33 @@ export interface JobQuestion {
   hint?: string;
 }
 
+/** Progress of the automatic application kit (resume + cover letter + interview prep). */
+export interface PrepState {
+  state: "idle" | "preparing" | "done" | "error";
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+  /** Parts that failed while the rest succeeded. */
+  failed?: ("resume" | "cover" | "interview")[];
+}
+
 export interface Application {
   jobId: string;
   status: ApplicationStatus;
   answers: { question: string; answer: string }[];
   history: { status: ApplicationStatus; at: string }[];
+  prep: PrepState;
   updatedAt: string;
 }
+
+export interface Prefs {
+  /** What happens on a right swipe: ask the quick questions first, or build the kit straight away. */
+  swipeAction: "ask" | "auto";
+  /** Include interview questions in the automatic kit. */
+  kitInterview: boolean;
+}
+
+export const DEFAULT_PREFS: Prefs = { swipeAction: "ask", kitInterview: true };
 
 export type PostedWithin = "1" | "3" | "7" | "14" | "30";
 
@@ -186,6 +206,9 @@ export const TailoredResumeSchema = z.object({
     other: z.array(z.string()).describe("Certifications, tools, domain terms"),
   }),
   resume: ProfileSchema,
+  licencesFirst: z
+    .boolean()
+    .describe("True when the posting requires licences/certifications the candidate holds, so they go right after the summary"),
   changes: z.array(z.string()).describe("Short notes describing what was changed and why"),
   keywordsNotAdded: z
     .array(z.string())

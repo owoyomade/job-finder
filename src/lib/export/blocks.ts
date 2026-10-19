@@ -21,14 +21,24 @@ export function contactLine(p: Profile): string {
   return join([p.location, p.phone, p.email, ...p.links]);
 }
 
-export function resumeBlocks(p: Profile): Block[] {
+export const LICENCES_HEADING = "Licences & Certifications";
+
+export function resumeBlocks(p: Profile, opts: { licencesFirst?: boolean } = {}): Block[] {
   const b: Block[] = [{ type: "name", text: p.name }];
   if (p.headline) b.push({ type: "subtitle", text: p.headline });
   b.push({ type: "contact", text: contactLine(p) });
 
+  const licences = () => {
+    if (!p.certifications.length) return;
+    b.push({ type: "heading", text: LICENCES_HEADING });
+    for (const c of p.certifications) b.push({ type: "bullet", text: c });
+  };
+
   if (p.summary) {
     b.push({ type: "heading", text: "Summary" }, { type: "text", text: p.summary });
   }
+  // Trades, healthcare, driving and similar roles screen on licences first.
+  if (opts.licencesFirst) licences();
   if (p.skills.length) {
     b.push({ type: "heading", text: "Skills" }, { type: "text", text: p.skills.join(", ") });
   }
@@ -57,10 +67,7 @@ export function resumeBlocks(p: Profile): Block[] {
       if (e.details) b.push({ type: "text", text: e.details });
     }
   }
-  if (p.certifications.length) {
-    b.push({ type: "heading", text: "Certifications" });
-    for (const c of p.certifications) b.push({ type: "bullet", text: c });
-  }
+  if (!opts.licencesFirst) licences();
   if (p.volunteer.length) {
     b.push({ type: "heading", text: "Volunteer Experience" });
     for (const v of p.volunteer) {

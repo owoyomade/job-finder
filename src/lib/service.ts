@@ -2,9 +2,24 @@
 import * as db from "./db";
 import { HttpError } from "./api";
 import { fetchJobBankDescription } from "./jobs/jobbank";
-import { LEVELS, type Job, type JobSource, type Level, type SearchParams, type StoredProfile } from "./types";
+import {
+  DEFAULT_PREFS,
+  LEVELS,
+  type Job,
+  type JobSource,
+  type Level,
+  type Prefs,
+  type SearchParams,
+  type StoredProfile,
+} from "./types";
 import { searchJobs } from "./jobs";
-import { tailorResume, writeCoverLetter, type CoverTone, type JobContext } from "./ai/tasks";
+import {
+  generateInterviewQuestions,
+  tailorResume,
+  writeCoverLetter,
+  type CoverTone,
+  type JobContext,
+} from "./ai/tasks";
 import { answersBlock } from "./questions";
 import { matchResume, profileToText } from "./match";
 
@@ -81,14 +96,69 @@ export async function coverLetterForJob(jobId: string, tone: CoverTone = "formal
   return db.saveDocument(job.id, "cover", `Cover letter – ${job.title} at ${job.company}`, letter);
 }
 
-/** One tap: tailored resume + cover letter, then mark the application ready. */
-export async function prepareApplication(jobId: string) {
+export async function interviewForJob(jobId: string, count = 30) {
+  const stored = db.getProfile();
+  const job = await ensureDescription(requireJob(jobId));
+  const set = await generateInterviewQuestions({
+    profile: stored?.profile ?? null,
+    job: jobContext(job),
+    level: stored?.targetLevel ?? "",
+    count,
+  });
+  return db.saveDocument(job.id, "interview", `Interview prep – ${job.title} at ${job.company}`, set);
+}
+
+// ---------- Automatic application kit ----------
+
+const STALE_MS = 15 * 60 * 1000;
+
+export function getPrefs(): Prefs {
+  return { ...DEFAULT_PREFS, ...(db.getSetting<Partial<Prefs>>("prefs") ?? {}) };
+}
+
+/**
+ * Check the kit can be built (resume on file, job has a description), then mark
+ * it as preparing. Returns false if a build is already running for this job.
+ */
+export async function startPrepare(jobId: string): Promise<boolean> {
   requireProfile();
   const job = await ensureDescription(requireJob(jobId));
-  jobContext(job); // fail fast with a clear message if there's no description
-  const [resume, cover] = await Promise.all([tailorForJob(job.id), coverLetterForJob(job.id)]);
-  const application = db.setApplicationStatus(job.id, "ready");
-  return { resume: resume.document, cover, application };
+  jobContext(job); // throws a clear message if there's no description
+  const current = db.getApplication(job.id)?.prep;
+  if (current?.state === "preparing" && current.startedAt && Date.now() - Date.parse(current.startedAt) < STALE_MS) {
+    return false;
+  }
+  db.setApplicationPrep(job.id, { state: "preparing", startedAt: new Date().toISOString() });
+  return true;
+}
+
+/** Build the tailored resume, cover letter and (optionally) interview prep in parallel. */
+export async function runPrepare(jobId: string) {
+  const prefs = getPrefs();
+  const startedAt = db.getApplication(jobId)?.prep.startedAt;
+  const parts: ["resume" | "cover" | "interview", () => Promise<unknown>][] = [
+    ["resume", () => tailorForJob(jobId)],
+    ["cover", () => coverLetterForJob(jobId)],
+  ];
+  if (prefs.kitInterview) parts.push(["interview", () => interviewForJob(jobId)]);
+
+  const results = await Promise.allSettled(parts.map(([, run]) => run()));
+  const failed = parts.filter((_, i) => results[i].status === "rejected").map(([name]) => name);
+  const firstError = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+  const finishedAt = new Date().toISOString();
+
+  if (failed.length === parts.length) {
+    db.setApplicationPrep(jobId, {
+      state: "error",
+      startedAt,
+      finishedAt,
+      error: firstError?.reason instanceof Error ? firstError.reason.message : "Something went wrong.",
+    });
+    return;
+  }
+  db.setApplicationPrep(jobId, { state: "done", startedAt, finishedAt, failed: failed.length ? failed : undefined });
+  const status = db.getApplication(jobId)?.status;
+  if (!status || status === "interested" || status === "skipped") db.setApplicationStatus(jobId, "ready");
 }
 
 // ---------- Search ----------

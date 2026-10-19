@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import type { Level, Profile, StoredProfile } from "@/lib/types";
 import { LevelSelect } from "@/components/LevelSelect";
+import { AppSettings } from "@/components/AppSettings";
 import { Button, ErrorNote, Field, Notice, PageHeader, cx, inputClass } from "@/components/ui";
 
 const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -84,6 +85,8 @@ export default function ProfilePage() {
         title="My resume"
         intro="Your master resume. Every tailored resume, cover letter and interview answer is built from what’s here, so keep it complete and accurate."
       />
+
+      <AppSettings />
 
       <form onSubmit={upload} className="mb-8 rounded-lg border border-line bg-surface p-4 md:p-5">
         <h2 className="font-display text-lg font-semibold">{stored ? "Replace your resume" : "Add your resume"}</h2>
@@ -292,9 +295,9 @@ export default function ProfilePage() {
             </div>
           </Section>
 
-          <Section title="Certifications" hint="One per line">
+          <Section title="Licences & certifications" hint="One per line: tickets, licences, registrations, clearances, certificates (e.g. Red Seal 309A, AZ licence, RPN – CNO, Smart Serve, WHMIS)">
             <textarea
-              aria-label="Certifications"
+              aria-label="Licences and certifications"
               className={cx(inputClass, "min-h-16")}
               value={draft.certifications.join("\n")}
               onChange={(e) => upd("certifications", lines(e.target.value))}

@@ -4,6 +4,7 @@ import path from "node:path";
 import type {
   Application,
   ApplicationStatus,
+  PrepState,
   DocumentKind,
   Job,
   SearchParams,
@@ -63,6 +64,9 @@ function getDb(): DatabaseSync {
       value TEXT NOT NULL
     );
   `);
+  // Columns added after the first release.
+  const appCols = (db.prepare("PRAGMA table_info(applications)").all() as { name: string }[]).map((c) => c.name);
+  if (!appCols.includes("prep")) db.exec("ALTER TABLE applications ADD COLUMN prep TEXT NOT NULL DEFAULT '{}'");
   return db;
 }
 
@@ -251,15 +255,19 @@ export function deleteDocument(id: number) {
 
 // ---------- Applications ----------
 
-type AppRow = { job_id: string; status: string; answers: string; history: string; updated_at: string };
+type AppRow = { job_id: string; status: string; answers: string; history: string; prep: string; updated_at: string };
 
-const toApp = (r: AppRow): Application => ({
-  jobId: r.job_id,
-  status: r.status as ApplicationStatus,
-  answers: JSON.parse(r.answers),
-  history: JSON.parse(r.history),
-  updatedAt: r.updated_at,
-});
+const toApp = (r: AppRow): Application => {
+  const prep = JSON.parse(r.prep || "{}") as Partial<PrepState>;
+  return {
+    jobId: r.job_id,
+    status: r.status as ApplicationStatus,
+    answers: JSON.parse(r.answers),
+    history: JSON.parse(r.history),
+    prep: { state: "idle", ...prep },
+    updatedAt: r.updated_at,
+  };
+};
 
 export function getApplication(jobId: string): Application | null {
   const row = getDb().prepare("SELECT * FROM applications WHERE job_id = ?").get(jobId) as AppRow | undefined;
@@ -287,6 +295,14 @@ export function saveApplicationAnswers(jobId: string, answers: Application["answ
   getDb()
     .prepare("UPDATE applications SET answers = ?, updated_at = ? WHERE job_id = ?")
     .run(JSON.stringify(answers), now(), jobId);
+  return getApplication(jobId)!;
+}
+
+export function setApplicationPrep(jobId: string, prep: PrepState): Application {
+  if (!getApplication(jobId)) setApplicationStatus(jobId, "interested");
+  getDb()
+    .prepare("UPDATE applications SET prep = ?, updated_at = ? WHERE job_id = ?")
+    .run(JSON.stringify(prep), now(), jobId);
   return getApplication(jobId)!;
 }
 

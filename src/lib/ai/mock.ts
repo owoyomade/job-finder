@@ -60,6 +60,7 @@ export function tailorResume(profile: Profile, job: JobContext): TailoredResume 
       "Add ANTHROPIC_API_KEY in .env.local for real AI tailoring of your summary and bullets.",
     ],
     keywordsNotAdded: notAdded,
+    licencesFirst: profile.certifications.length > 0 && /licen[cs]e|certif|red seal|registration|ticket/i.test(job.description),
   };
 }
 

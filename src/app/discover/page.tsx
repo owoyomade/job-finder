@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { LEVEL_LABELS, type Job, type SearchParams } from "@/lib/types";
+import { DEFAULT_PREFS, LEVEL_LABELS, type Job, type Prefs, type SearchParams } from "@/lib/types";
 import { AgeStamp } from "@/components/JobRow";
-import { PrepareSheet } from "@/components/PrepareSheet";
+import { PrepareSheet, startKit } from "@/components/PrepareSheet";
 import { Button, Empty, ErrorNote, Field, Tag, cx, inputClass } from "@/components/ui";
 import { LevelSelect } from "@/components/LevelSelect";
 
@@ -18,6 +18,20 @@ export default function DiscoverPage() {
   const [index, setIndex] = useState(0);
   const [preparing, setPreparing] = useState<Job | null>(null);
   const [lastSkipped, setLastSkipped] = useState<Job | null>(null);
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
+  const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
+
+  useEffect(() => {
+    api<{ prefs: Prefs }>("/api/prefs").then((r) => setPrefs(r.prefs)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), toast.error ? 6000 : 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const kitStarted = useCallback((j: Job) => setToast({ text: `Building your kit for ${j.title}. Find it in Applications.` }), []);
 
   const load = useCallback(() => {
     api<Deck>("/api/deck")
@@ -43,9 +57,16 @@ export default function DiscoverPage() {
         method: "PUT",
         json: { status: liked ? "interested" : "skipped" },
       }).catch(() => {});
-      if (liked) setPreparing(j);
+      if (!liked) return;
+      if (prefs.swipeAction === "auto") {
+        startKit(j.id)
+          .then(() => kitStarted(j))
+          .catch((e) => setToast({ text: (e as Error).message, error: true }));
+      } else {
+        setPreparing(j);
+      }
     },
-    [],
+    [prefs.swipeAction, kitStarted],
   );
 
   async function undo() {
@@ -82,9 +103,14 @@ export default function DiscoverPage() {
             {deck.params.level ? ` · ${LEVEL_LABELS[deck.params.level]}` : ""}
           </p>
         </div>
-        <Link href="/jobs" className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-semibold hover:bg-sunken">
-          Change search
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link href="/profile#settings" className="rounded-md px-2 py-1.5 text-sm text-muted hover:bg-sunken hover:text-ink">
+            Settings
+          </Link>
+          <Link href="/jobs" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold hover:bg-sunken">
+            Change search
+          </Link>
+        </div>
       </header>
 
       {job ? (
@@ -119,6 +145,7 @@ export default function DiscoverPage() {
           </div>
           <p className="mt-3 text-center text-xs text-muted">
             {remaining} left · swipe right or press → if interested, left or ← to skip
+            {prefs.swipeAction === "auto" && " · your kit builds automatically"}
           </p>
         </>
       ) : (
@@ -136,7 +163,24 @@ export default function DiscoverPage() {
         </Empty>
       )}
 
-      {preparing && <PrepareSheet job={preparing} onClose={() => setPreparing(null)} />}
+      {preparing && <PrepareSheet job={preparing} onClose={() => setPreparing(null)} onStarted={kitStarted} />}
+
+      {toast && (
+        <div
+          role="status"
+          className={cx(
+            "fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-lg px-4 py-3 text-sm shadow-lg md:bottom-8",
+            toast.error ? "bg-rust text-white" : "bg-ink text-paper",
+          )}
+        >
+          {toast.text}
+          {!toast.error && (
+            <Link href="/applications" className="ml-2 font-semibold underline">
+              View
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -272,7 +316,7 @@ function FirstSearch({ onDone }: { onDone: () => void }) {
       <p className="mt-1 text-muted">Tell us the role and we’ll line up fresh jobs to swipe through.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <Field label="Job title">
-          <input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Data Analyst" required />
+          <input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Electrician, Registered Nurse, Data Analyst" required />
         </Field>
         <Field label="City or province" hint="Leave blank for all of Canada">
           <input className={inputClass} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Toronto, ON" />

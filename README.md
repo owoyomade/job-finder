@@ -1,10 +1,11 @@
 # Job Finder (Canada)
 
-A personal job-hunting app for iPhone, Android and desktop, modelled on swipe-to-apply apps like Sprout:
+A personal job-hunting app for iPhone, Android and desktop, modelled on swipe-to-apply apps like Sprout, and built for **every career path**: skilled trades, healthcare, education, hospitality and retail, transportation, government, office, creative and tech.
 
 - **Discover**: swipe through fresh Canadian jobs. Right means interested, left means skip. Jobs come from LinkedIn, Indeed, Glassdoor and company sites (through JSearch), plus **Job Bank**, Adzuna and remote boards.
 - **A few quick questions**: after you swipe right, the app asks about skills the job wants that your resume doesn't mention yet. Your answers are used as real facts, and nothing is made up.
-- **One-tap prepare**: a tailored, ATS-friendly resume and a cover letter (DOCX and PDF) for that job.
+- **Automatic application kit**: from each job description, the app builds an ATS-friendly tailored resume, a cover letter and interview questions with model answers, in the background while you keep swiping. In Settings (on My resume), choose whether a right swipe asks the quick questions first or builds the kit straight away. Pasted jobs build their kit automatically too.
+- **Licences first when they matter**: for trades, healthcare, driving and similar roles, required tickets, licences and registrations (Red Seal, AZ, RPN, Smart Serve…) move to the top of the resume.
 - **Applications tracker**: Interested → Ready → Applied → Interviewing → Offer. "Open application" takes you to the employer's page with your documents ready, and one tap marks it as applied.
 - **Interview prep**: 20–80 likely questions for the role, each with a model answer built from your resume.
 - **Screens out old postings** and **asks your job level** (Internship → Director+). Also links to GC Jobs and provincial and municipal job sites.

@@ -19,8 +19,9 @@ export const GET = handle(async (req: NextRequest, ctx: RouteContext<"/api/docum
   let blocks: Block[];
   let baseName: string;
   if (doc.kind === "resume") {
-    const r = (doc.data as TailoredResume).resume;
-    blocks = resumeBlocks(r);
+    const tailored = doc.data as TailoredResume;
+    const r = tailored.resume;
+    blocks = resumeBlocks(r, { licencesFirst: tailored.licencesFirst ?? false });
     baseName = `${slug(r.name)}_Resume_${slug(jobInfo.company || jobInfo.title)}`;
   } else if (doc.kind === "cover") {
     if (!profile) throw new HttpError(400, "Add your profile first.");

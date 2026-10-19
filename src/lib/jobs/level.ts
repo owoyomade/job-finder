@@ -17,12 +17,12 @@ const RANK: Record<Level, number> = {
 const TITLE_PATTERNS: [Level, RegExp][] = [
   ["director", /\b(director|vice[\s-]president|vp|chief|cto|cfo|ceo|coo|head of)\b/i],
   ["manager", /\b(manager|mgr|supervisor|superintendent)\b/i],
-  ["lead", /\b(lead|principal|staff|architect)\b/i],
+  ["lead", /\b(lead|principal|staff|architect|foreman|forewoman|foreperson|charge nurse|crew lead|head chef|chef de cuisine)\b/i],
   ["senior", /\b(senior|sr\.?|iii|level\s*3)\b/i],
   ["internship", /\b(intern|internship|co-?op|student|summer)\b/i],
-  ["entry", /\b(new\s*grad|graduate|entry[\s-]level|trainee|apprentice)\b/i],
+  ["entry", /\b(new\s*grad|graduate|entry[\s-]level|trainee|apprentice|helper|labourer|laborer|general labour)\b/i],
   ["junior", /\b(junior|jr\.?|associate|level\s*1|i)\b/i],
-  ["intermediate", /\b(intermediate|mid[\s-]level|ii|level\s*2)\b/i],
+  ["intermediate", /\b(intermediate|mid[\s-]level|ii|level\s*2|journeyperson|journeyman|journeywoman)\b/i],
 ];
 
 /** Minimum years of experience the description asks for, if it says. */
@@ -55,6 +55,9 @@ export function detectLevel(title: string, description = ""): Level | null {
   }
   const years = minYearsRequired(description);
   if (years !== null) return levelFromYears(years);
+  // Trades postings often state the level in the description rather than the title.
+  if (/\bjourney(person|man|woman)\b/i.test(description)) return "intermediate";
+  if (/\bapprentice(ship)?\b/i.test(description)) return "entry";
   if (/\b(no experience (required|necessary)|will train)\b/i.test(description)) return "entry";
   return null;
 }

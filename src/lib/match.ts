@@ -3,8 +3,10 @@
  * this runs on every search result to rank jobs and show missing keywords.
  */
 
-// Multi-word and tricky skills that a simple tokenizer would miss or split.
+// Multi-word and tricky skills that a simple tokenizer would miss or split,
+// grouped by field so the app works for every career path.
 const KNOWN_SKILLS = [
+  // Office, data and tech
   "power bi", "microsoft excel", "excel", "sql", "python", "tableau", "looker", "sas", "spss", "vba",
   "javascript", "typescript", "react", "next.js", "node.js", "java", "c#", "c++", ".net", "golang", "ruby", "php",
   "html", "css", "aws", "azure", "gcp", "google cloud", "docker", "kubernetes", "terraform", "ci/cd", "git",
@@ -13,20 +15,54 @@ const KNOWN_SKILLS = [
   "salesforce", "sap", "oracle", "workday", "quickbooks", "sage", "jira", "confluence", "agile", "scrum",
   "kanban", "project management", "pmp", "change management", "stakeholder management", "risk management",
   "business analysis", "requirements gathering", "process improvement", "lean", "six sigma",
+  "ux", "ui", "user research", "wireframing", "prototyping", "accessibility", "wcag", "qa", "testing",
+  "automation", "selenium", "cybersecurity", "network security", "itil", "active directory", "linux",
+  "windows server", "troubleshooting", "technical support", "help desk", "microsoft 365", "office 365",
+  "sharepoint", "power automate", "power apps", "dynamics 365", "data entry", "microsoft office",
+  // Finance, HR and admin
+  "budgeting", "forecasting", "financial analysis", "financial reporting", "accounts payable",
+  "accounts receivable", "reconciliation", "ifrs", "aspe", "gaap", "cpa", "payroll", "bookkeeping", "auditing",
+  "compliance", "recruitment", "onboarding", "hris", "employee relations", "scheduling", "reception",
+  "calendar management", "minute taking", "records management",
+  // Government and policy
+  "policy development", "policy analysis", "research", "report writing", "briefing notes",
+  "enhanced reliability", "secret clearance", "security clearance", "bilingual", "french", "english",
+  "cbc", "bbb", "public administration", "program evaluation",
+  // Sales, marketing and creative
   "customer service", "account management", "sales", "b2b", "crm", "hubspot", "marketing", "seo", "sem",
-  "google analytics", "content strategy", "social media", "copywriting", "communication", "leadership",
-  "problem solving", "problem-solving", "teamwork", "collaboration", "time management", "attention to detail",
-  "critical thinking", "presentation", "negotiation", "budgeting", "forecasting", "financial analysis",
-  "financial reporting", "accounts payable", "accounts receivable", "reconciliation", "ifrs", "aspe", "gaap",
-  "cpa", "payroll", "bookkeeping", "auditing", "compliance", "policy development", "policy analysis",
-  "research", "writing", "report writing", "bilingual", "french", "english", "ux", "ui", "figma",
-  "user research", "wireframing", "prototyping", "accessibility", "wcag", "qa", "testing", "automation",
-  "selenium", "cybersecurity", "network security", "itil", "active directory", "linux", "windows server",
-  "troubleshooting", "technical support", "help desk", "microsoft 365", "office 365", "sharepoint",
-  "power automate", "power apps", "dynamics 365", "nursing", "patient care", "case management",
-  "mental health", "health and safety", "whmis", "first aid", "cpr", "inventory management",
-  "supply chain", "logistics", "procurement", "warehouse", "forklift", "scheduling", "recruitment",
-  "onboarding", "hris", "employee relations", "training", "coaching", "mentoring",
+  "google analytics", "content strategy", "social media", "copywriting", "figma", "adobe creative suite",
+  "photoshop", "illustrator", "indesign", "video editing", "premiere pro", "canva", "photography",
+  // Skilled trades and construction
+  "red seal", "journeyperson", "journeyman", "apprenticeship", "309a", "442a", "313a", "306a",
+  "blueprint reading", "blueprints", "electrical code", "building code", "lockout/tagout", "lock-out/tag-out",
+  "fall protection", "working at heights", "confined space", "welding", "mig", "tig", "stick welding",
+  "plc", "hvac", "plumbing", "carpentry", "millwright", "preventive maintenance", "preventative maintenance",
+  "hand tools", "power tools", "power line", "conduit", "troubleshooting electrical", "framing", "drywall",
+  "heavy equipment", "excavator", "crane",
+  // Transportation and warehouse
+  "az licence", "az license", "dz licence", "dz license", "class 1", "class 3", "g licence", "g license",
+  "g2", "air brake", "air brake endorsement", "cvor", "clean abstract", "hours of service", "logbook",
+  "forklift", "reach truck", "pallet jack", "shipping and receiving", "warehouse", "inventory management",
+  "supply chain", "logistics", "procurement", "dispatch", "route planning",
+  // Healthcare and community services
+  "rn", "rpn", "psw", "lpn", "registered nurse", "registered practical nurse", "personal support worker",
+  "nursing", "patient care", "bls", "acls", "pals", "medication administration", "charting",
+  "electronic medical records", "emr", "infection control", "infection prevention", "wound care",
+  "dementia care", "palliative care", "vital signs", "phlebotomy", "triage", "case management",
+  "mental health", "crisis intervention", "trauma-informed", "harm reduction", "cpi", "naloxone",
+  // Education and childcare
+  "oct", "rece", "ece", "early childhood education", "classroom management", "lesson planning", "iep",
+  "curriculum", "special education", "differentiated instruction", "vulnerable sector check", "tutoring",
+  // Hospitality, food and retail
+  "smart serve", "food handler", "food handlers", "food safety", "haccp", "pos", "point of sale",
+  "cash handling", "merchandising", "visual merchandising", "loss prevention", "upselling", "barista",
+  "line cook", "food preparation", "front of house", "back of house", "housekeeping", "guest services",
+  // Safety and certificates common to many fields
+  "whmis", "first aid", "standard first aid", "cpr", "health and safety", "ohsa", "jhsc", "safety",
+  // Transferable skills
+  "communication", "leadership", "problem solving", "problem-solving", "teamwork", "collaboration",
+  "time management", "attention to detail", "critical thinking", "presentation", "negotiation",
+  "coaching", "mentoring", "writing", "reliability", "flexible schedule", "weekends",
 ];
 
 const STOPWORDS = new Set(
@@ -90,7 +126,9 @@ export function extractKeywords(description: string, limit = 30): string[] {
   for (const [w, { count, original }] of counts) {
     const isAcronym = /^[A-Z0-9+#]{2,6}$/.test(original);
     const midSentence = new RegExp(`[a-z,;/(] ${esc(original)}\\b`).test(description);
-    if (isAcronym || midSentence) {
+    // Skip words that are only part of a phrase already found ("Seal" in "Red Seal").
+    const partOfPhrase = [...found.keys()].some((k) => k.includes(" ") && containsTerm(k, w));
+    if ((isAcronym || midSentence) && !partOfPhrase) {
       if (!found.has(w)) found.set(w, 1 + count);
     }
   }

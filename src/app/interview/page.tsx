@@ -56,7 +56,7 @@ export default function InterviewPage() {
       {!doc && (
         <form onSubmit={generate} className="grid gap-4 rounded-lg border border-line bg-surface p-4 md:grid-cols-2 md:p-5">
           <Field label="Job title">
-            <input className={inputClass} required value={form.title} onChange={set("title")} placeholder="e.g. Policy Analyst" />
+            <input className={inputClass} required value={form.title} onChange={set("title")} placeholder="e.g. Welder, Early Childhood Educator, Policy Analyst" />
           </Field>
           <Field label="Company or department">
             <input className={inputClass} value={form.company} onChange={set("company")} placeholder="e.g. Health Canada" />
